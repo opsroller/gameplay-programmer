@@ -13,12 +13,13 @@ export const meta = {
   ],
 }
 
-// --- run-modes v1 begin ---
+// --- run-modes v2 begin ---
 const RUN = ((a, realAgent, realPhase, realLog) => {
   const opted = !!(a && typeof a === 'object' && a.run && typeof a.run === 'object')
   const c = opted ? a.run : {}
   const mode = c.mode === 'inline' ? 'inline' : 'agents'
   const results = c.results && typeof c.results === 'object' ? c.results : {}
+  const reviewers = c.reviewers && typeof c.reviewers === 'object' ? c.reviewers : {}
   const only = Array.isArray(c.only) && c.only.length ? c.only.map(String) : null
   const from = c.from ? String(c.from) : null
   const titles = typeof meta !== 'undefined' && meta && Array.isArray(meta.phases) ? meta.phases.map((p) => p.title) : []
@@ -38,6 +39,10 @@ const RUN = ((a, realAgent, realPhase, realLog) => {
   }
   const seen = {}
   const out = {}
+  // Who answered each step marked independent: "subagent" when this run
+  // spawned it, else the reviewer named in run.reviewers, else "self".
+  const by = {}
+  const who = (k) => (typeof reviewers[k] === 'string' && reviewers[k].trim() ? reviewers[k].trim() : 'self')
   const skipped = []
   const next = []
   const logs = []
@@ -49,6 +54,7 @@ const RUN = ((a, realAgent, realPhase, realLog) => {
   const picked = (ph, label) => reached && (!only || only.some((s) => s === ph || s === label || label.startsWith(s + ':')))
   const agent = (prompt, opts) => {
     const op = opts || {}
+    const independent = op.independent === true
     const ph = op.phase || current
     const base = op.label || ph || 'agent'
     seen[base] = (seen[base] || 0) + 1
@@ -56,14 +62,22 @@ const RUN = ((a, realAgent, realPhase, realLog) => {
     let note = null
     if (has(results, key)) {
       const gap = missing(results[key], op.schema)
-      if (!gap) { out[key] = results[key]; return Promise.resolve(results[key]) }
+      if (!gap) { out[key] = results[key]; if (independent) by[key] = who(key); return Promise.resolve(results[key]) }
       note = `answer missing ${gap}; answer this brief again`
     }
     if (!picked(ph, base)) { skipped.push(key); return Promise.resolve(null) }
     if (mode === 'agents') {
-      return realAgent(prompt, opts).then((r) => { if (r !== null && r !== undefined) out[key] = r; return r })
+      const pass = Object.assign({}, op)
+      delete pass.independent
+      return realAgent(prompt, opts ? pass : opts).then((r) => {
+        if (r !== null && r !== undefined) { out[key] = r; if (independent) by[key] = 'subagent' }
+        return r
+      })
     }
-    next.push(note ? { key, phase: ph, prompt, schema: op.schema || null, note } : { key, phase: ph, prompt, schema: op.schema || null })
+    const brief = { key, phase: ph, prompt, schema: op.schema || null }
+    if (independent) brief.independent = true
+    if (note) brief.note = note
+    next.push(brief)
     if (!halting) {
       halting = true
       // Wait 200 microtask turns before pausing, so every sibling in a
@@ -76,19 +90,20 @@ const RUN = ((a, realAgent, realPhase, realLog) => {
   const log = (m) => { logs.push(String(m)); return realLog(m) }
   const finish = (value) => {
     if (!opted) return value
+    const self_reviewed = Object.keys(by).filter((k) => by[k] === 'self')
     if (value === '__run_halted__') {
       return {
-        run: 'inline', status: 'next', next, results: out, skipped, logs,
-        how: 'Do each brief in next yourself, in order: follow its prompt in this session (it may tell you to edit files, commit or push), and shape your answer to its schema when one is given, with every required field. A brief with a note was answered before without the fields it names. Add each answer to results under its key, then run this workflow again with the same args and run.results set to the merged results. Repeat until status is "done".',
+        run: 'inline', status: 'next', next, results: out, reviewers: by, self_reviewed, skipped, logs,
+        how: 'Do each brief in next, in order: follow its prompt in this session (it may tell you to edit files, commit or push), and shape your answer to its schema when one is given, with every required field. A brief marked independent reviews work this run produced, so do not answer it yourself: send its prompt to a reviewer with no part in the work (the project\'s code-reviewer role, a fresh session or a fresh subagent), use their answer, and name them in run.reviewers under its key; if you must answer it yourself, it is listed in self_reviewed and must be reported as self-reviewed. A brief with a note was answered before without the fields it names. Add each answer to results under its key, then run this workflow again with the same args, run.results set to the merged results and run.reviewers to the merged reviewers. Repeat until status is "done".',
       }
     }
-    return { run: mode, status: 'done', result: value, results: out, skipped, logs }
+    return { run: mode, status: 'done', result: value, results: out, reviewers: by, self_reviewed, skipped, logs }
   }
   return { agent, phase, log, finish, halted, error }
 })(typeof args === 'undefined' ? undefined : args, agent, phase, log)
 if (RUN.error) return RUN.error
 const RUN_OUT = await Promise.race([RUN.halted, (async (agent, phase, log) => {
-// --- run-modes v1 end (workflow body follows; close it with the tail line) ---
+// --- run-modes v2 end (workflow body follows; close it with the tail line) ---
 
 const USAGE = 'usage: implement-system { system: "<system or tool name>", spec: "<path or section of the spec>", target: "system" | "tool" (optional, default "system"), wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
 if (!args || !args.system || !args.spec) return USAGE
@@ -209,7 +224,7 @@ const lenses = tool
     ]
 const attacks = await parallel(lenses.map((lens) => () => agent(
   `Try to break the new "${system}" code through ${lens}. Do NOT edit any file. For each real problem, return a short description and the code of one failing test written for the project's test framework, ready to add to ${build.testFile}. Put only real, reproducible problems in failures; observations and ideas go in notes. Return an empty failures list if you find nothing.`,
-  { schema: ATTACK, phase: 'Attack', label: 'attack:' + lens.split(':')[0] })))
+  { schema: ATTACK, phase: 'Attack', label: 'attack:' + lens.split(':')[0], independent: true })))
 const unverified = []
 const failures = []
 attacks.forEach((a, i) => {
@@ -250,7 +265,7 @@ const check = await agent(
   (tool ? ` Build with ${t.buildOption} on and run the smoke test (${t.smokeTest}); measure the budget (${t.budget}); then confirm a build with the option off does not include the tool.` : '') +
   (es ? ` Run the in-engine smoke test (${es.test}) and confirm it fails when the system is not bound or loaded (for example, by reading that its assertion would fail on an empty scene), and that CI runs it on pull requests (${build.ciChange || es.ci}).` : '') +
   ` 2) For each touched docs page (${(docs.pages || []).join(', ') || 'none reported'}): it holds one Diataxis kind only, starts with a line saying its kind and audience, its title follows the pattern, and it links to the related pages of other kinds. Do not edit; report problems and notes separately. ` + NOTES_RULE + ' Set pass to true exactly when problems is empty.',
-  { schema: CHECK, phase: 'Check', label: 'check' })
+  { schema: CHECK, phase: 'Check', label: 'check', independent: true })
 if (!check) return { status: 'unverified', reason: 'check agent failed', docs: docs.pages, unverifiedLenses: unverified, notes }
 const problems = strings(check.problems)
 strings(check.notes).forEach((n) => notes.push('check: ' + n))
