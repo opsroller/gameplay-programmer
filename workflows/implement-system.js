@@ -134,7 +134,7 @@ const PLAN = {
   },
   required: ['cases', 'ambiguous', 'docKinds'],
 }
-const BUILD = { type: 'object', properties: { green: { type: 'boolean' }, testFile: { type: 'string' }, branch: { type: 'string' }, smoke: { type: 'string' }, measured: { type: 'string' }, notes: { type: 'string' } }, required: ['green', 'testFile', 'branch'] }
+const BUILD = { type: 'object', properties: { green: { type: 'boolean' }, testFile: { type: 'string' }, branch: { type: 'string' }, smoke: { type: 'string' }, measured: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['green', 'testFile', 'branch'] }
 const ATTACK = { type: 'object', properties: { failures: { type: 'array', items: { type: 'object', properties: { problem: { type: 'string' }, testCode: { type: 'string' } }, required: ['problem', 'testCode'] } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['failures'] }
 const FIX = { type: 'object', properties: { green: { type: 'boolean' }, failing: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['green', 'failing'] }
 const DOCS = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, undocumented: { type: 'array', items: { type: 'string' } } }, required: ['pages', 'undocumented'] }
@@ -168,7 +168,7 @@ const build = await agent(
     : 'Keep it in the engine-independent core. ') +
   'Write failing tests for these cases first, in one test file for this ' + (tool ? 'tool' : 'system') + ', then the simplest code that passes, then refactor:\n- ' + plan.cases.join('\n- ') +
   (ambiguous.length ? '\nImplement each stated default as a named constant and keep this list for the game designer:\n- ' + ambiguous.join('\n- ') : '') +
-  '\nRun the full test suite with the project\'s commands. Commit with Conventional Commits. Return whether the suite is green' + (tool ? ' (including the smoke test, with the budget met)' : '') + ', the path of the test file and the branch name' + (tool ? ', the smoke test result and the measured budget value' : '') + '.',
+  '\nLog every non-original item you add (third-party code, data or assets) per the engineering-practices provenance skill.\nRun the full test suite with the project\'s commands. Commit with Conventional Commits. Return whether the suite is green' + (tool ? ' (including the smoke test, with the budget met)' : '') + ', the path of the test file, the branch name, the non-original items added (empty if none)' + (tool ? ', the smoke test result and the measured budget value' : '') + '.',
   { schema: BUILD, phase: 'Build', label: 'build' })
 if (!build || !build.green) return 'blocked: build did not reach green for ' + system + (build && build.notes ? ': ' + build.notes : '')
 if (build.notes) notes.push('build: ' + build.notes)
@@ -259,7 +259,7 @@ const out = {
     tests_pass: true,
     docs: docs.pages || [],
     undocumented: docs.undocumented || [],
-    non_original: [],
+    non_original: strings(build.non_original),
     notes,
   },
 }

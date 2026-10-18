@@ -30,7 +30,7 @@ with `blocked: planning for tool ...`:
 
 | Field | Meaning |
 |---|---|
-| `buildOption` | Build option that adds the tool to the project build; off by default unless the profile says otherwise. |
+| `buildOption` | Build option that adds the tool to the project build. Off by default; on by default only when the project profile says its tools ship on. |
 | `smokeTest` | One command that runs the built tool end to end on a small committed input, with expected exit code and output. Added to the test suite. |
 | `budget` | Performance budget: metric (wall time, peak memory), limit, the input it is measured on, how to measure it. |
 
