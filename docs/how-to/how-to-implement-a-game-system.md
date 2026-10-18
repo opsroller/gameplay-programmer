@@ -19,8 +19,12 @@ implementation with the `implement-system` workflow.
    `notes` never block; read them for follow-ups.
 5. If it returns `unverifiedLenses`, run the missing attack yourself:
    "Use gameplay-programmer to attack the `<name>` system for `<lens>`; return failing tests only."
-6. Send `ambiguousForDesigner` to the game designer.
-7. Ship it from the `next` field, without rebuilding. With a work
+6. If the running game reaches the system, the result carries
+   `engineSmoke`: the in-engine smoke test and the CI change that runs
+   it. Check the CI change landed in the same PR; if another role owns
+   the pipeline file, make sure they agreed to it.
+7. Send `ambiguousForDesigner` to the game designer.
+8. Ship it from the `next` field, without rebuilding. With a work
    package, pass the whole result to deliver-package:
    ```
    /engineering-practices:deliver-package { wp: "WP-NN", prior: <the implement-system result> }
