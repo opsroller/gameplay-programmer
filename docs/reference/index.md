@@ -27,7 +27,7 @@ Connecting it:
 
 ## Workflows
 
-- [implement-system](workflows/implement-system.md): `{ system, spec }`
+- [implement-system](workflows/implement-system.md): `{ system, spec, target?, wp?, branch?, pr? }`
 - [investigate-gameplay-bug](workflows/investigate-gameplay-bug.md): `{ bug, capture? }`
 - [determinism-audit](workflows/determinism-audit.md): `{ scope }`
 
@@ -38,7 +38,7 @@ Connecting it:
 | Field | Value |
 |---|---|
 | `name` | `gameplay-programmer` |
-| `version` | `0.2.0` |
+| `version` | `0.3.0` |
 | `author.name` | `opsroller` |
 | `repository` | `https://github.com/opsroller/gameplay-programmer` |
 | `license` | `GPL-2.0-or-later` |

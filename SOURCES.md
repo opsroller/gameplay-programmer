@@ -34,6 +34,16 @@
 - Scott Bilas, "A Data-Driven Game Object System" (GDC 2002) - https://www.sebaslab.com/wp-content/uploads/2022/07/data-driven-game-object-system1.pdf - components, schemas, templates, why hierarchies harden.
 - Timothy Ford, "Overwatch Gameplay Architecture and Netcode" (GDC 2017) - https://gdcvault.com/play/1024001/-Overwatch-Gameplay-Architecture-and - ECS and determinism in a shipped game (abstract only).
 
+## Tools and command-line programs
+
+- Command Line Interface Guidelines (clig.dev) - https://clig.dev/ - exit codes, output to stdout and errors to stderr, `--help`, machine-readable output (tool target cases).
+- POSIX.1-2017, Utility Conventions - https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap12.html - option and argument syntax (tool target cases).
+- GNU Coding Standards, Standards for Command Line Interfaces - https://www.gnu.org/prep/standards/html_node/Command_002dLine-Interfaces.html - `--help`, `--version`, long options (tool target cases).
+- CMake, `option()` - https://cmake.org/cmake/help/latest/command/option.html - an example of a boolean build option, default off, that adds an optional target (tool build option).
+- Smoke testing (software), Wikipedia - https://en.wikipedia.org/wiki/Smoke_testing_(software) - a quick end-to-end run that shows a build works at all (tool smoke test).
+- Addy Osmani, "Performance budgets 101" (web.dev) - https://web.dev/articles/performance-budgets-101 - a budget as a metric, a limit and a check that fails the build (tool performance budget).
+- Martin Fowler, "Deployment Pipeline" - https://martinfowler.com/bliki/DeploymentPipeline.html - build once and hand the same build on, instead of rebuilding (Hand off phase).
+
 ## Documentation
 
 - Diataxis - https://diataxis.fr - documentation structure; applied through the project's Diataxis guide.

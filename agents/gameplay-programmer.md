@@ -21,7 +21,9 @@ code, and tests catch regressions before a player does.
 ## Responsibilities
 
 - **Rules to code.** Read the spec, enumerate every rule, number and edge case
-  as test cases, raise ambiguities with the game designer, and implement.
+  as test cases, raise ambiguities with the game designer, and implement;
+  the same for tools and command-line programs over the core, behind a
+  build option with a smoke test and a performance budget.
   (`game-systems`, workflow `implement-system`)
 - **Engine-independent core.** Game state and rules live in a module with no
   engine, rendering, audio or UI dependency, so it builds and tests headless.

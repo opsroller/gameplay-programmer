@@ -62,7 +62,7 @@ Type:
 /gameplay-programmer:implement-system with args { system: "armour", spec: "rules spec, Armour section" }
 ```
 
-The workflow runs six phases. You should see, in order:
+The workflow runs seven phases. You should see, in order:
 
 1. **Plan**: the case list from step 2 again, plus the planned doc pages.
 2. **Build**: a new test file for the armour system appears; the tests fail,
@@ -74,12 +74,15 @@ The workflow runs six phases. You should see, in order:
 5. **Docs**: reference pages updated in the project's `docs/reference/`.
 6. **Check**: the suite and replay test pass; every touched page is one
    Diataxis kind.
+7. **Hand off**: the branch is pushed and a draft pull request opens.
 
 The final output should look like:
 
 ```
 { status: "done", cases: 5, ambiguousForDesigner: ["damage 0 ..."],
-  attackTestsAdded: 1, docs: ["docs/reference/unit-types.md", ...] }
+  attackTestsAdded: 1, docs: ["docs/reference/unit-types.md", ...],
+  notes: [], handoff: { branch: "feat/armour", pr: "...", tests_pass: true, ... },
+  next: "land it ...: /engineering-practices:land-pr { pr: \"...\" }" }
 ```
 
 Notice `attackTestsAdded`. Even a rule this small usually gets one extra case
@@ -92,15 +95,10 @@ file, the rule code in the engine-independent core, the content schema change,
 and the docs pages, all on one branch. Open the reference page and notice it
 starts with a line naming its kind and audience.
 
-## 5. Open the pull request
+## 5. Find the pull request
 
-Finally, ask:
-
-```
-Open a draft pull request for this branch following engineering-practices.
-```
-
-The pull request is ready for the code reviewer.
+Open the `pr` link in `handoff`. The draft pull request is ready for the
+code reviewer; `next` says how to land it afterwards.
 
 ## What we did
 
