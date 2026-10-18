@@ -1,6 +1,6 @@
 {
   "name": "gameplay-programmer",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Gameplay programmer: turns game rules and systems into deterministic, engine-independent, tested code; binds it to the engine through a thin layer; keeps content data-driven; debugs and profiles gameplay.",
   "author": {
     "name": "opsroller"

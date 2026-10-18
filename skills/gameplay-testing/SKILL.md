@@ -49,7 +49,10 @@ not.
 7. **Add a replay test** for any system that touches the simulation
    (`deterministic-simulation`).
 8. **Bug fix = failing test first.** Reproduce the bug as a test, watch it
-   fail, then fix.
+   fail, then fix. A test written against an API that does not exist yet is
+   red when the build fails only on that missing symbol; record it as "does
+   not compile, missing <symbol>". Any other build error is not red: fix it
+   first.
 9. **Run what CI runs.** Use the project's exact commands, sanitizers or
    strict modes included, before marking work done.
 

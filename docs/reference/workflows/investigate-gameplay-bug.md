@@ -40,7 +40,7 @@ searches.
 | Reproduce | 1 | tests, test harness and CI only | Classifies the bug if `kind` is not given; one failing test of the kind's type. No game code changes. May change the test harness (runner, fixtures, test-only hooks release builds never run) and CI steps when the test needs them, in their own `test:` or `ci:` commit, listed in `harness`. Stops if not reproduced or no kind. |
 | Diagnose | 1 | no | Minimise, the kind's first divergence, one-sentence cause, searchable pattern, doc kinds via the compass. |
 | Fix | 1 | yes | Fix at the cause, apart from the harness and CI commits; regression test unchanged; the kind's checks green. Returns `open` (blocking items) and `notes` (non-blocking); blocks only when not green or `open` is not empty. |
-| Siblings | 3 parallel + 0-1 | search: no; fix: yes | Search the kind's three lenses for the same pattern; one agent applies all sibling fixes, with the same `open` and `notes` split. |
+| Siblings | 3 parallel + 0-1 | search: no; fix: yes | Search the kind's three lenses for the same pattern; one agent applies all sibling fixes, with the same `open` and `notes` split. Each sibling test must be red first: it fails, or the build fails only on a missing API it calls; recorded in `red` and copied to `notes`. |
 | Docs | 1 | yes | Planned pages, one kind per page. |
 | Check | 1 | no | Regression test fails without the fix and passes with it; the kind's checks; harness and CI changes kept apart from the fix; docs kinds. |
 | Handoff | 1 | commits and pushes | Cuts a `fix/<slug>` branch if on the default branch, commits and pushes everything this run wrote, runs the checks on the pushed head. Opens no PR. Blocks if it cannot push or the checks fail. |
