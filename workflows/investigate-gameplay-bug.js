@@ -9,6 +9,7 @@ export const meta = {
     { title: 'Siblings', detail: 'parallel read-only search for the same mistake elsewhere' },
     { title: 'Docs', detail: 'update the planned Diataxis pages in the same PR' },
     { title: 'Check', detail: 'verify the fix, the regression test and one kind per page' },
+    { title: 'Handoff', detail: 'commit and push the fix, return a handoff for deliver-package or land-pr' },
   ],
 }
 
@@ -126,6 +127,7 @@ const FIX = { type: 'object', properties: { green: { type: 'boolean' }, open: { 
 const SIB = { type: 'object', properties: { sites: { type: 'array', items: { type: 'object', properties: { location: { type: 'string' }, why: { type: 'string' }, testCode: { type: 'string' } }, required: ['location', 'why'] } } }, required: ['sites'] }
 const DOCS = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, undocumented: { type: 'array', items: { type: 'string' } } }, required: ['pages', 'undocumented'] }
 const CHECK = { type: 'object', properties: { pass: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['pass', 'problems'] }
+const HANDOFF = { type: 'object', properties: { branch: { type: 'string' }, pr: { type: 'string' }, head_sha: { type: 'string' }, tests_pass: { type: 'boolean' }, problem: { type: 'string' } }, required: ['branch', 'tests_pass'] }
 
 phase('Reproduce')
 const repro = await agent(
@@ -182,5 +184,33 @@ const check = await agent(
 if (!check) return { status: 'unverified', reason: 'check agent failed', cause: diag.cause }
 if (!check.pass) return { status: 'blocked', open: check.problems }
 
-return { status: 'done', cause: diag.cause, test: repro.test, siblingsFixed: sites.length, unverifiedSearches: unverified, docs: docs.pages, undocumented: docs.undocumented }
+// The handoff is what engineering-practices deliver-package takes as
+// prior, so the fix ships without being built again.
+phase('Handoff')
+const hand = await agent(
+  `Hand off the fix for: ${bug}. If you are on the default branch, cut a Conventional branch (fix/<slug>) from the latest remote default branch; otherwise stay on the current feature branch. Commit everything this run wrote: the regression test ${repro.test}, the fix, any sibling tests and fixes, and the docs pages (${(docs.pages || []).join(', ') || 'none'}) as Conventional Commits, and push. Run the full suite and the replay tests with the project's commands, and the docs or link checks the project profile names, on the pushed head. Do not open, mark ready or merge a PR: the engineering-practices workflow named in the result does that. Follow the engineering-practices git-workflow skill. Return the branch, any open PR, the head commit SHA, whether the checks pass on that head, and the problem if not.`,
+  { schema: HANDOFF, phase: 'Handoff', label: 'handoff' })
+if (!hand || !hand.branch) return { status: 'blocked', reason: 'handoff failed; the fix may be uncommitted or not pushed' + (hand && hand.problem ? ': ' + hand.problem : ''), cause: diag.cause }
+if (!hand.tests_pass) return { status: 'blocked', cause: diag.cause, open: [`checks fail on ${hand.branch}${hand.head_sha ? ' at ' + hand.head_sha : ''}: ${hand.problem || 'no details'}`] }
+
+return {
+  status: 'done',
+  cause: diag.cause,
+  test: repro.test,
+  siblingsFixed: sites.length,
+  unverifiedSearches: unverified,
+  docs: docs.pages,
+  undocumented: docs.undocumented,
+  handoff: {
+    from: 'gameplay-programmer:investigate-gameplay-bug',
+    branch: hand.branch,
+    pr: hand.pr || '',
+    head_sha: hand.head_sha || '',
+    tests_pass: true,
+    docs: docs.pages || [],
+    undocumented: docs.undocumented || [],
+    notes: [`root cause: ${diag.cause}`, `regression test: ${repro.test}`].concat(unverified.length ? ['sibling searches left unverified: ' + unverified.join('; ')] : []),
+  },
+  next: `ship it without rebuilding: /engineering-practices:deliver-package { wp: "<the package>", prior: <this result> }; with no work package, /engineering-practices:land-pr { branch: "${hand.branch}" }`,
+}
 })(RUN.agent, RUN.phase, RUN.log)]); return RUN.finish(RUN_OUT)

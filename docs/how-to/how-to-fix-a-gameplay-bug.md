@@ -18,7 +18,12 @@ test, using the `investigate-gameplay-bug` workflow.
 5. If it returns `blocked` with `open` items, resolve them and run again.
 6. If `unverifiedSearches` is not empty, ask the agent to search those areas
    for the same pattern.
-7. Open the PR; link the issue.
+7. Ship it. The workflow has already committed and pushed the fix, so do
+   not rebuild it. For a work package, pass the whole result as `prior`:
+   `/engineering-practices:deliver-package { wp: "<the package>", prior: <the result> }`.
+   Otherwise land the branch:
+   `/engineering-practices:land-pr { branch: "<handoff.branch>" }`.
+   Link the issue in the PR.
 
 For a desync between two machines or two builds, provide both captures; the
 workflow compares per-tick state to find the first divergence.
