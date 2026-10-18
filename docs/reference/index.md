@@ -38,7 +38,7 @@ Connecting it:
 | Field | Value |
 |---|---|
 | `name` | `gameplay-programmer` |
-| `version` | `0.4.0` |
+| `version` | `0.4.1` |
 | `author.name` | `opsroller` |
 | `repository` | `https://github.com/opsroller/gameplay-programmer` |
 | `license` | `GPL-2.0-or-later` |

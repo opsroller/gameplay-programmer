@@ -152,6 +152,17 @@ const PLAN = {
       },
       required: ['buildOption', 'smokeTest', 'budget'],
     },
+    wpCheck: {
+      type: 'object',
+      properties: {
+        found: { type: 'boolean' },
+        plan: { type: 'string' },
+        title: { type: 'string' },
+        matches: { type: 'boolean' },
+        why: { type: 'string' },
+      },
+      required: ['found', 'matches'],
+    },
     engineSmoke: {
       type: 'object',
       properties: {
@@ -183,10 +194,17 @@ const plan = await agent(
   (tool ? 'A tool is not reached by the running game: return engineSmoke with needed false. ' : ENGINE_PLAN + ' ') +
   'Then plan documentation: use the Diataxis compass to list each doc kind this ' + (tool ? 'tool' : 'system') + ' affects (' +
   (tool ? 'a tool owes reference for its options, exit codes and formats, and a how-to for the job it does; explanation if a design choice is made' : 'a new system owes reference for its interface; explanation if a design choice is made; how-to if someone must do something new') +
-  '), with the page path and why. Do not edit files.',
+  '), with the page path and why. ' +
+  (wp ? `Then check the work package id: find "${wp}" in the project's work-package list (the plan named in CLAUDE.md or the project profile) and return wpCheck: found, the plan path, the package title, and matches (true only when that package is this ${tool ? 'tool' : 'system'}'s work), with why. ` : '') +
+  'Do not edit files.',
   { schema: PLAN, phase: 'Plan', label: 'plan' })
 if (!plan || !Array.isArray(plan.cases) || plan.cases.length === 0) return 'blocked: planning failed (no case list) for ' + system
 if (tool && !(plan.tool && plan.tool.buildOption && plan.tool.smokeTest && plan.tool.budget)) return 'blocked: planning for tool ' + system + ' returned no build option, smoke test and performance budget'
+// A wrong id would ship the work under another package's row.
+if (wp && !(plan.wpCheck && plan.wpCheck.found && plan.wpCheck.matches)) {
+  const c = plan.wpCheck || {}
+  return `blocked: work package ${wp} ${!c.found ? `is not in the project's work-package list${c.plan ? ` (${c.plan})` : ''}` : `is "${c.title || '?'}", not the ${tool ? 'tool' : 'system'} "${system}"${c.why ? `: ${c.why}` : ''}`}; pass the right wp, or leave it out. ${USAGE}`
+}
 const ambiguous = Array.isArray(plan.ambiguous) ? plan.ambiguous : []
 const docKinds = Array.isArray(plan.docKinds) ? plan.docKinds : []
 const t = tool ? plan.tool : null

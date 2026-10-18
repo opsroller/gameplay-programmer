@@ -13,6 +13,8 @@ implementation with the `implement-system` workflow.
    ```
    /gameplay-programmer:implement-system with args { system: "<name>", spec: "<path or section>", wp: "WP-NN" }
    ```
+   The id must be this system's row in the project's work-package list;
+   a wrong or unknown id stops the run at Plan, before anything is built.
 4. If it returns `status: "blocked"`, read `open`: every entry there is a
    failure. Fix or answer each one (often a spec question) and run it again.
    The case list is recomputed, so resolved ambiguities become plain cases.
