@@ -42,3 +42,13 @@ Missing args: returns the usage string.
 
 A string starting `blocked:` means planning or building failed before any
 structured result.
+
+## Run modes
+
+Run modes v1. Besides its own args, the workflow takes the optional `run` arg defined in the engineering-practices
+[workflow run modes reference](https://github.com/opsroller/engineering-practices/blob/main/docs/reference/workflow-run-modes.md):
+`run: { mode: "inline" }` runs every phase in the calling session with no subagents, `run.only` runs chosen phases or steps,
+and `run.from` with `run.results` resumes a stopped run. Without `run`, the workflow and its outputs are as above.
+See [how to run a workflow inline](https://github.com/opsroller/engineering-practices/blob/main/docs/how-to/how-to-run-a-workflow-inline.md).
+
+Step labels, for `run.only` and `run.results`: `plan`, `build`, `attack:<lens>` (`attack:determinism`, `attack:edge cases and bounds`, `attack:contract fidelity`), `fix`, `docs`, `check`.
