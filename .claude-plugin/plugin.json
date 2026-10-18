@@ -1,0 +1,14 @@
+{
+  "name": "gameplay-programmer",
+  "version": "0.1.0",
+  "description": "Gameplay programmer: implements game rules and systems as deterministic, tested code with a clean boundary to the engine.",
+  "author": {
+    "name": "opsroller"
+  },
+  "repository": "https://github.com/opsroller/gameplay-programmer",
+  "license": "MIT",
+  "keywords": [
+    "role",
+    "job-function"
+  ]
+}
