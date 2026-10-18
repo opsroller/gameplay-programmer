@@ -178,7 +178,8 @@ const DIAG = {
   required: ['cause', 'firstDivergence', 'pattern', 'docKinds'],
 }
 // open holds only what blocks shipping; anything else goes in notes.
-const FIX = { type: 'object', properties: { green: { type: 'boolean' }, open: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['green', 'open'] }
+const FIX = { type: 'object', properties: { green: { type: 'boolean' }, red: { type: 'array', items: { type: 'string' }, description: 'one per new test: "<test>: fails" or "<test>: does not compile, missing <symbol>"' }, open: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['green', 'open'] }
+const RED_RULE = 'A new test is red when it runs and fails, or when the build fails only because the test calls an API this change has not added yet (the compiler or type checker names that missing symbol and nothing else). Record each as "<test>: fails" or "<test>: does not compile, missing <symbol>"; a build error from anything else is not red, so fix or report it before going on.'
 const FIX_RETURN = 'Return green; in open, only what blocks shipping this fix (a failing test or check, a part of the cause left unfixed, a decision you cannot make); in notes, everything else (follow-ups, observations, failures you confirmed are also on the base branch). An empty open with green true means done.'
 const SIB = { type: 'object', properties: { sites: { type: 'array', items: { type: 'object', properties: { location: { type: 'string' }, why: { type: 'string' }, testCode: { type: 'string' } }, required: ['location', 'why'] } } }, required: ['sites'] }
 const DOCS = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, undocumented: { type: 'array', items: { type: 'string' } } }, required: ['pages', 'undocumented'] }
@@ -228,10 +229,11 @@ if (unverified.length) log('sibling searches that crashed (left unverified): ' +
 const sibNotes = []
 if (sites.length) {
   const sfix = await agent(
-    `Apply these sibling fixes in one pass: add each provided test first (each to the test file of the system it covers), confirm it fails, then fix. Run ${K.checks}. Commit. ` + FIX_RETURN + '\n' +
+    `Apply these sibling fixes in one pass: add each provided test first (each to the test file of the system it covers), confirm it is red (${RED_RULE}), then fix; return red. Run ${K.checks}. Commit. ` + FIX_RETURN + '\n' +
     sites.map((x, i) => `${i + 1}. ${x.location}: ${x.why}${x.testCode ? '\n' + x.testCode : ''}`).join('\n'),
     { schema: FIX, phase: 'Siblings', label: 'fix-siblings' })
   if (sfix && Array.isArray(sfix.notes)) sfix.notes.forEach((n) => sibNotes.push(n))
+  if (sfix && Array.isArray(sfix.red)) sfix.red.forEach((r) => sibNotes.push('red before fix: ' + r))
   if (!sfix || !sfix.green || (sfix.open && sfix.open.length)) return { status: 'blocked', reason: 'sibling fixes incomplete', open: sfix && sfix.open && sfix.open.length ? sfix.open : sites.map((x) => x.location), notes: fixNotes.concat(sibNotes) }
 }
 const notes = fixNotes.concat(sibNotes)

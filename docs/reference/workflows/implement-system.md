@@ -72,7 +72,7 @@ smoke test is in [Tool target](#tool-target).
 | Plan | 1 | no | Case list, `AMBIGUOUS:` items with defaults, doc kinds via the compass. |
 | Build | 1 | yes | Failing tests in one test file, then code, until the suite is green. Adds the in-engine smoke test and its CI change when needed. Commits. |
 | Attack | 3, parallel | no | Lenses: determinism, edge cases and bounds, contract fidelity. Each returns failing test code. |
-| Fix | 0-1 | yes | One agent adds all returned tests in one edit, then fixes the code. Runs only if tests were returned. Returns `failing` (tests still failing) apart from `notes`; only `failing` or a red suite blocks. |
+| Fix | 0-1 | yes | One agent adds all returned tests in one edit, confirms each is red, then fixes the code. A test is red when it fails, or when the build fails only on the API it calls that does not exist yet (the missing symbol and nothing else); each is recorded in `red` and copied to `notes` as `red before fix:`. Any other build error is not red. Runs only if tests were returned. Returns `failing` (tests still failing) apart from `notes`; only `failing` or a red suite blocks. |
 | Docs | 1 | yes | Writes the planned pages in the project's docs, one kind per page. |
 | Check | 1 | no | Suite and replay tests (for a tool, also smoke test, budget, option off; for a system the game reaches, the in-engine smoke test and its CI job); each touched page one kind, kind line, title pattern, links. Returns `problems` (failures) apart from `notes`; only `problems` blocks. |
 | Hand off | 1 | no (pushes) | Pushes the branch; opens a draft PR if none is open. Does not mark it ready, request review or merge. |

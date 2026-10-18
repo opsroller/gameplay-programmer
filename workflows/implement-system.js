@@ -124,6 +124,7 @@ const DOCS_FRAGMENT = 'Classify every user-visible change in this work with the 
 // Only failures block. Every step returns blocking problems and
 // informational notes in separate fields, and the workflow stops on the
 // blocking field alone, so a note never turns green work into "blocked".
+const RED_RULE = 'A new test is red when it runs and fails, or when the build fails only because the test calls an API this change has not added yet (the compiler or type checker names that missing symbol and nothing else). Record each as "<test>: fails" or "<test>: does not compile, missing <symbol>"; a build error from anything else is not red, so fix or report it before going on.'
 const NOTES_RULE = 'Put a problem in the blocking list only if it is a failure you can point to: a test that still fails, a suite or check that is red, a case you could not implement or fix. Everything else (observations, follow-up ideas, questions for the designer, things already fixed, "nothing found") goes in notes, never in the blocking list; an empty blocking list means done.'
 
 // A tool or CLI is a target with three extra obligations: it is built
@@ -178,7 +179,7 @@ const PLAN = {
 }
 const BUILD = { type: 'object', properties: { green: { type: 'boolean' }, testFile: { type: 'string' }, branch: { type: 'string' }, smoke: { type: 'string' }, engineSmoke: { type: 'string' }, ciChange: { type: 'string' }, measured: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['green', 'testFile', 'branch'] }
 const ATTACK = { type: 'object', properties: { failures: { type: 'array', items: { type: 'object', properties: { problem: { type: 'string' }, testCode: { type: 'string' } }, required: ['problem', 'testCode'] } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['failures'] }
-const FIX = { type: 'object', properties: { green: { type: 'boolean' }, failing: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['green', 'failing'] }
+const FIX = { type: 'object', properties: { green: { type: 'boolean' }, red: { type: 'array', items: { type: 'string' }, description: 'one per new test: "<test>: fails" or "<test>: does not compile, missing <symbol>"' }, failing: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['green', 'failing'] }
 const DOCS = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, undocumented: { type: 'array', items: { type: 'string' } } }, required: ['pages', 'undocumented'] }
 const CHECK = { type: 'object', properties: { pass: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['pass', 'problems'] }
 const HANDOFF = { type: 'object', properties: { branch: { type: 'string' }, pr: { type: 'string' }, head_sha: { type: 'string' }, tests_pass: { type: 'boolean' }, problem: { type: 'string' } }, required: ['branch', 'tests_pass'] }
@@ -257,13 +258,14 @@ if (unverified.length) log('attack lenses that crashed (left unverified): ' + un
 phase('Fix')
 if (failures.length) {
   const fix = await agent(
-    `Add these failing tests to ${build.testFile} in one edit, confirm each fails, then fix the "${system}" code so they pass without weakening any test. Run the full suite and replay tests${tool ? ' and the smoke test' : es ? ' and the in-engine smoke test' : ''}. Commit.\n\n` +
+    `Add these failing tests to ${build.testFile} in one edit, confirm each is red first (${RED_RULE}), then fix the "${system}" code so they pass without weakening any test. Run the full suite and replay tests${tool ? ' and the smoke test' : es ? ' and the in-engine smoke test' : ''}. Commit.\n\n` +
     failures.map((f, i) => `${i + 1}. ${f.problem}\n${f.testCode}`).join('\n\n') +
-    '\nReturn green (the full suite passes), failing (each test or problem above that still fails after your fixes, one line each) and notes. ' + NOTES_RULE,
+    '\nReturn green (the full suite passes), red (how each new test was red before the fix), failing (each test or problem above that still fails after your fixes, one line each) and notes. ' + NOTES_RULE,
     { schema: FIX, phase: 'Fix', label: 'fix' })
   if (!fix) return { status: 'blocked', reason: 'fix agent failed', open: failures.map((f) => f.problem) }
   const failing = strings(fix.failing)
   strings(fix.notes).forEach((n) => notes.push('fix: ' + n))
+  strings(fix.red).forEach((r) => notes.push('red before fix: ' + r))
   if (!fix.green || failing.length) return { status: 'blocked', open: failing.length ? failing : ['suite not green after fixes'], notes }
 }
 
