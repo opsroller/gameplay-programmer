@@ -13,12 +13,13 @@ export const meta = {
   ],
 }
 
-// --- run-modes v1 begin ---
+// --- run-modes v2 begin ---
 const RUN = ((a, realAgent, realPhase, realLog) => {
   const opted = !!(a && typeof a === 'object' && a.run && typeof a.run === 'object')
   const c = opted ? a.run : {}
   const mode = c.mode === 'inline' ? 'inline' : 'agents'
   const results = c.results && typeof c.results === 'object' ? c.results : {}
+  const reviewers = c.reviewers && typeof c.reviewers === 'object' ? c.reviewers : {}
   const only = Array.isArray(c.only) && c.only.length ? c.only.map(String) : null
   const from = c.from ? String(c.from) : null
   const titles = typeof meta !== 'undefined' && meta && Array.isArray(meta.phases) ? meta.phases.map((p) => p.title) : []
@@ -38,6 +39,10 @@ const RUN = ((a, realAgent, realPhase, realLog) => {
   }
   const seen = {}
   const out = {}
+  // Who answered each step marked independent: "subagent" when this run
+  // spawned it, else the reviewer named in run.reviewers, else "self".
+  const by = {}
+  const who = (k) => (typeof reviewers[k] === 'string' && reviewers[k].trim() ? reviewers[k].trim() : 'self')
   const skipped = []
   const next = []
   const logs = []
@@ -49,6 +54,7 @@ const RUN = ((a, realAgent, realPhase, realLog) => {
   const picked = (ph, label) => reached && (!only || only.some((s) => s === ph || s === label || label.startsWith(s + ':')))
   const agent = (prompt, opts) => {
     const op = opts || {}
+    const independent = op.independent === true
     const ph = op.phase || current
     const base = op.label || ph || 'agent'
     seen[base] = (seen[base] || 0) + 1
@@ -56,14 +62,22 @@ const RUN = ((a, realAgent, realPhase, realLog) => {
     let note = null
     if (has(results, key)) {
       const gap = missing(results[key], op.schema)
-      if (!gap) { out[key] = results[key]; return Promise.resolve(results[key]) }
+      if (!gap) { out[key] = results[key]; if (independent) by[key] = who(key); return Promise.resolve(results[key]) }
       note = `answer missing ${gap}; answer this brief again`
     }
     if (!picked(ph, base)) { skipped.push(key); return Promise.resolve(null) }
     if (mode === 'agents') {
-      return realAgent(prompt, opts).then((r) => { if (r !== null && r !== undefined) out[key] = r; return r })
+      const pass = Object.assign({}, op)
+      delete pass.independent
+      return realAgent(prompt, opts ? pass : opts).then((r) => {
+        if (r !== null && r !== undefined) { out[key] = r; if (independent) by[key] = 'subagent' }
+        return r
+      })
     }
-    next.push(note ? { key, phase: ph, prompt, schema: op.schema || null, note } : { key, phase: ph, prompt, schema: op.schema || null })
+    const brief = { key, phase: ph, prompt, schema: op.schema || null }
+    if (independent) brief.independent = true
+    if (note) brief.note = note
+    next.push(brief)
     if (!halting) {
       halting = true
       // Wait 200 microtask turns before pausing, so every sibling in a
@@ -76,19 +90,20 @@ const RUN = ((a, realAgent, realPhase, realLog) => {
   const log = (m) => { logs.push(String(m)); return realLog(m) }
   const finish = (value) => {
     if (!opted) return value
+    const self_reviewed = Object.keys(by).filter((k) => by[k] === 'self')
     if (value === '__run_halted__') {
       return {
-        run: 'inline', status: 'next', next, results: out, skipped, logs,
-        how: 'Do each brief in next yourself, in order: follow its prompt in this session (it may tell you to edit files, commit or push), and shape your answer to its schema when one is given, with every required field. A brief with a note was answered before without the fields it names. Add each answer to results under its key, then run this workflow again with the same args and run.results set to the merged results. Repeat until status is "done".',
+        run: 'inline', status: 'next', next, results: out, reviewers: by, self_reviewed, skipped, logs,
+        how: 'Do each brief in next, in order: follow its prompt in this session (it may tell you to edit files, commit or push), and shape your answer to its schema when one is given, with every required field. A brief marked independent reviews work this run produced, so do not answer it yourself: send its prompt to a reviewer with no part in the work (the project\'s code-reviewer role, a fresh session or a fresh subagent), use their answer, and name them in run.reviewers under its key; if you must answer it yourself, it is listed in self_reviewed and must be reported as self-reviewed. A brief with a note was answered before without the fields it names. Add each answer to results under its key, then run this workflow again with the same args, run.results set to the merged results and run.reviewers to the merged reviewers. Repeat until status is "done".',
       }
     }
-    return { run: mode, status: 'done', result: value, results: out, skipped, logs }
+    return { run: mode, status: 'done', result: value, results: out, reviewers: by, self_reviewed, skipped, logs }
   }
   return { agent, phase, log, finish, halted, error }
 })(typeof args === 'undefined' ? undefined : args, agent, phase, log)
 if (RUN.error) return RUN.error
 const RUN_OUT = await Promise.race([RUN.halted, (async (agent, phase, log) => {
-// --- run-modes v1 end (workflow body follows; close it with the tail line) ---
+// --- run-modes v2 end (workflow body follows; close it with the tail line) ---
 
 const USAGE = 'usage: implement-system { system: "<system or tool name>", spec: "<path or section of the spec>", target: "system" | "tool" (optional, default "system"), wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
 if (!args || !args.system || !args.spec) return USAGE
@@ -116,6 +131,12 @@ const NOTES_RULE = 'Put a problem in the blocking list only if it is a failure y
 // it meets a measured performance budget.
 const TOOL_PLAN = 'This target is a tool or command-line program, not an in-game system. Its cases cover its interface: arguments and options, standard input and output formats, exit codes (zero on success, non-zero on each failure), error messages on standard error, and --help. It must reuse the engine-independent core through its public API and never copy rules. Also return tool: the build option that enables it in the project build (name, default off unless the profile says otherwise, so shipping builds do not include it), one smoke test (a command that runs the built tool end to end on a small committed input, with its expected exit code and output), and a performance budget (metric such as wall time or peak memory, the limit, the input it is measured on, and how to measure it with the project tooling). Use the spec\'s numbers where it gives them; otherwise state your default as AMBIGUOUS.'
 
+// A system the running game reaches (bound to the engine, loaded by a
+// scene or level) also owes one in-engine smoke test: the engine started
+// headless on the real content, asserting one observable result. Unit
+// tests on the core cannot catch a binding, loading or registration break.
+const ENGINE_PLAN = 'Decide whether the running game reaches this system (it is bound to the engine, loaded by a scene, level or content file, or called from engine-side code), per the gameplay-programmer engine-integration skill. Return engineSmoke: needed (true when the running game reaches it), why, and when needed: test, one smoke test that starts the engine headless (or the project\'s automated run mode) on real committed content, drives the system once and asserts one observable result with a non-zero exit on failure, using the project\'s existing engine test harness if it has one; and ci, the pipeline change that makes the project\'s CI run it on every pull request (a new job or step, the engine binary or cache it needs, and the file the change goes in), or "none: <the existing job that already runs it>". If the project has no way to start the engine headless in CI, say so in ci and state the smallest addition as AMBIGUOUS.'
+
 const PLAN = {
   type: 'object',
   properties: {
@@ -131,10 +152,20 @@ const PLAN = {
       },
       required: ['buildOption', 'smokeTest', 'budget'],
     },
+    engineSmoke: {
+      type: 'object',
+      properties: {
+        needed: { type: 'boolean' },
+        why: { type: 'string' },
+        test: { type: 'string' },
+        ci: { type: 'string' },
+      },
+      required: ['needed', 'why'],
+    },
   },
-  required: ['cases', 'ambiguous', 'docKinds'],
+  required: ['cases', 'ambiguous', 'docKinds', 'engineSmoke'],
 }
-const BUILD = { type: 'object', properties: { green: { type: 'boolean' }, testFile: { type: 'string' }, branch: { type: 'string' }, smoke: { type: 'string' }, measured: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['green', 'testFile', 'branch'] }
+const BUILD = { type: 'object', properties: { green: { type: 'boolean' }, testFile: { type: 'string' }, branch: { type: 'string' }, smoke: { type: 'string' }, engineSmoke: { type: 'string' }, ciChange: { type: 'string' }, measured: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['green', 'testFile', 'branch'] }
 const ATTACK = { type: 'object', properties: { failures: { type: 'array', items: { type: 'object', properties: { problem: { type: 'string' }, testCode: { type: 'string' } }, required: ['problem', 'testCode'] } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['failures'] }
 const FIX = { type: 'object', properties: { green: { type: 'boolean' }, failing: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['green', 'failing'] }
 const DOCS = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, undocumented: { type: 'array', items: { type: 'string' } } }, required: ['pages', 'undocumented'] }
@@ -149,6 +180,7 @@ const plan = await agent(
   `You are the gameplay programmer. Follow the gameplay-programmer game-systems skill, step 1. Read ${spec} for the ${tool ? 'tool' : 'system'} "${system}" and the project's contracts doc. ` +
   'Return every rule, number and edge case as one-line test cases, and each gap as "AMBIGUOUS: <question> -> default <value>". ' +
   (tool ? TOOL_PLAN + ' ' : '') +
+  (tool ? 'A tool is not reached by the running game: return engineSmoke with needed false. ' : ENGINE_PLAN + ' ') +
   'Then plan documentation: use the Diataxis compass to list each doc kind this ' + (tool ? 'tool' : 'system') + ' affects (' +
   (tool ? 'a tool owes reference for its options, exit codes and formats, and a how-to for the job it does; explanation if a design choice is made' : 'a new system owes reference for its interface; explanation if a design choice is made; how-to if someone must do something new') +
   '), with the page path and why. Do not edit files.',
@@ -158,6 +190,8 @@ if (tool && !(plan.tool && plan.tool.buildOption && plan.tool.smokeTest && plan.
 const ambiguous = Array.isArray(plan.ambiguous) ? plan.ambiguous : []
 const docKinds = Array.isArray(plan.docKinds) ? plan.docKinds : []
 const t = tool ? plan.tool : null
+const es = !tool && plan.engineSmoke && plan.engineSmoke.needed ? plan.engineSmoke : null
+if (es && !(es.test && es.ci)) return 'blocked: planning for ' + system + ' says the running game reaches it but returned no in-engine smoke test and CI change'
 log(`${plan.cases.length} cases, ${ambiguous.length} ambiguous, ${docKinds.length} doc pages planned`)
 
 phase('Build')
@@ -165,13 +199,15 @@ const build = await agent(
   `Implement ${tool ? 'the tool' : ''} "${system}" following the gameplay-programmer skills game-systems, deterministic-simulation, state-machines-and-events (if it has modes) and gameplay-testing, and the project profile. ${where} ` +
   (tool
     ? `Keep the logic in the engine-independent core and make the tool a thin command-line front end over its public API. Add it to the project build behind the build option ${t.buildOption}. Add the smoke test to the project's test suite (so it runs wherever the suite runs, building with the option on): ${t.smokeTest}. Measure the performance budget (${t.budget}) and report the measured value. `
-    : 'Keep it in the engine-independent core. ') +
+    : 'Keep it in the engine-independent core. ' +
+      (es ? `Then add the in-engine smoke test (${es.test}) and make CI run it (${es.ci}); if the pipeline file belongs to another role, make the change per the engineering-practices peer-coordination skill and say so in notes. Run the smoke test locally and report its result. ` : '')) +
   'Write failing tests for these cases first, in one test file for this ' + (tool ? 'tool' : 'system') + ', then the simplest code that passes, then refactor:\n- ' + plan.cases.join('\n- ') +
   (ambiguous.length ? '\nImplement each stated default as a named constant and keep this list for the game designer:\n- ' + ambiguous.join('\n- ') : '') +
-  '\nLog every non-original item you add (third-party code, data or assets) per the engineering-practices provenance skill.\nRun the full test suite with the project\'s commands. Commit with Conventional Commits. Return whether the suite is green' + (tool ? ' (including the smoke test, with the budget met)' : '') + ', the path of the test file, the branch name, the non-original items added (empty if none)' + (tool ? ', the smoke test result and the measured budget value' : '') + '.',
+  '\nLog every non-original item you add (third-party code, data or assets) per the engineering-practices provenance skill.\nRun the full test suite with the project\'s commands. Commit with Conventional Commits. Return whether the suite is green' + (tool ? ' (including the smoke test, with the budget met)' : '') + ', the path of the test file, the branch name, the non-original items added (empty if none)' + (tool ? ', the smoke test result and the measured budget value' : '') + (es ? ', the in-engine smoke test result (engineSmoke) and the CI change made (ciChange: file and job, or none)' : '') + '.',
   { schema: BUILD, phase: 'Build', label: 'build' })
 if (!build || !build.green) return 'blocked: build did not reach green for ' + system + (build && build.notes ? ': ' + build.notes : '')
 if (build.notes) notes.push('build: ' + build.notes)
+if (es && !build.engineSmoke) return 'blocked: build for ' + system + ' did not report the in-engine smoke test result'
 
 phase('Attack')
 const lenses = tool
@@ -188,7 +224,7 @@ const lenses = tool
     ]
 const attacks = await parallel(lenses.map((lens) => () => agent(
   `Try to break the new "${system}" code through ${lens}. Do NOT edit any file. For each real problem, return a short description and the code of one failing test written for the project's test framework, ready to add to ${build.testFile}. Put only real, reproducible problems in failures; observations and ideas go in notes. Return an empty failures list if you find nothing.`,
-  { schema: ATTACK, phase: 'Attack', label: 'attack:' + lens.split(':')[0] })))
+  { schema: ATTACK, phase: 'Attack', label: 'attack:' + lens.split(':')[0], independent: true })))
 const unverified = []
 const failures = []
 attacks.forEach((a, i) => {
@@ -203,7 +239,7 @@ if (unverified.length) log('attack lenses that crashed (left unverified): ' + un
 phase('Fix')
 if (failures.length) {
   const fix = await agent(
-    `Add these failing tests to ${build.testFile} in one edit, confirm each fails, then fix the "${system}" code so they pass without weakening any test. Run the full suite and replay tests${tool ? ' and the smoke test' : ''}. Commit.\n\n` +
+    `Add these failing tests to ${build.testFile} in one edit, confirm each fails, then fix the "${system}" code so they pass without weakening any test. Run the full suite and replay tests${tool ? ' and the smoke test' : es ? ' and the in-engine smoke test' : ''}. Commit.\n\n` +
     failures.map((f, i) => `${i + 1}. ${f.problem}\n${f.testCode}`).join('\n\n') +
     '\nReturn green (the full suite passes), failing (each test or problem above that still fails after your fixes, one line each) and notes. ' + NOTES_RULE,
     { schema: FIX, phase: 'Fix', label: 'fix' })
@@ -217,6 +253,7 @@ phase('Docs')
 const docs = await agent(
   `Document "${system}" in the same PR. Planned pages:\n` +
   (docKinds.length ? docKinds.map((d) => `- ${d.kind}: ${d.page} (${d.why})`).join('\n') : '- (none planned; re-run the compass)') +
+  (es ? `\nThe how-to or reference page that covers testing names the in-engine smoke test and how to run it locally.` : '') +
   (tool ? `\nThe reference page lists every option, input and output format and exit code, the build option ${t.buildOption}, and the performance budget; the how-to shows how to build it with that option and run it.` : '') +
   '\n' + DOCS_FRAGMENT + ' Also update the project contracts doc if the public API changed. Commit with a docs: or the feature commit per the project convention.',
   { schema: DOCS, phase: 'Docs', label: 'docs' })
@@ -226,8 +263,9 @@ phase('Check')
 const check = await agent(
   `Check the "${system}" work. 1) Run the full test suite and the replay/determinism tests with the project's commands.` +
   (tool ? ` Build with ${t.buildOption} on and run the smoke test (${t.smokeTest}); measure the budget (${t.budget}); then confirm a build with the option off does not include the tool.` : '') +
+  (es ? ` Run the in-engine smoke test (${es.test}) and confirm it fails when the system is not bound or loaded (for example, by reading that its assertion would fail on an empty scene), and that CI runs it on pull requests (${build.ciChange || es.ci}).` : '') +
   ` 2) For each touched docs page (${(docs.pages || []).join(', ') || 'none reported'}): it holds one Diataxis kind only, starts with a line saying its kind and audience, its title follows the pattern, and it links to the related pages of other kinds. Do not edit; report problems and notes separately. ` + NOTES_RULE + ' Set pass to true exactly when problems is empty.',
-  { schema: CHECK, phase: 'Check', label: 'check' })
+  { schema: CHECK, phase: 'Check', label: 'check', independent: true })
 if (!check) return { status: 'unverified', reason: 'check agent failed', docs: docs.pages, unverifiedLenses: unverified, notes }
 const problems = strings(check.problems)
 strings(check.notes).forEach((n) => notes.push('check: ' + n))
@@ -236,7 +274,7 @@ if (!check.pass) return { status: 'blocked', open: ['check reported a failure wi
 
 phase('Hand off')
 const handoff = await agent(
-  `Hand off the "${system}" work. ${where} Make sure every commit is pushed to the branch (${build.branch}); if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, listing the docs pages by Diataxis kind${ambiguous.length ? ' and the defaults the game designer must confirm' : ''}. Do not mark it ready, request review or merge: the engineering-practices workflow named in the result does that. Follow the engineering-practices git-workflow skill. Return the branch, PR URL, head commit SHA, and whether the full suite passes on that head.`,
+  `Hand off the "${system}" work. ${where} Make sure every commit is pushed to the branch (${build.branch}); if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, listing the docs pages by Diataxis kind${es ? ', the in-engine smoke test and the CI change' : ''}${ambiguous.length ? ' and the defaults the game designer must confirm' : ''}. Do not mark it ready, request review or merge: the engineering-practices workflow named in the result does that. Follow the engineering-practices git-workflow skill. Return the branch, PR URL, head commit SHA, and whether the full suite passes on that head.`,
   { schema: HANDOFF, phase: 'Hand off', label: 'handoff' })
 if (!handoff || !handoff.branch) return { status: 'blocked', reason: 'hand-off failed; the work is committed on ' + build.branch + ' but may not be pushed', notes }
 if (!handoff.tests_pass) return { status: 'blocked', open: ['suite not green on the pushed head' + (handoff.problem ? ': ' + handoff.problem : '')], notes }
@@ -263,6 +301,7 @@ const out = {
     notes,
   },
 }
+if (es) out.engineSmoke = { test: es.test, ci: build.ciChange || es.ci, result: build.engineSmoke }
 if (tool) out.tool = { buildOption: t.buildOption, smokeTest: t.smokeTest, budget: t.budget, measured: build.measured || '' }
 out.next = wp
   ? `ship it without rebuilding: /engineering-practices:deliver-package { wp: "${wp}", prior: <this result> }; after the code reviewer passes, /engineering-practices:land-pr { pr: "<the PR>" }`
