@@ -85,7 +85,7 @@ if (!docs) return { status: 'blocked', reason: 'docs step failed' }
 
 phase('Check')
 const check = await agent(
-  `Verify: 1) revert the fix locally (do not commit) and confirm ${repro.test} fails, then restore and confirm it passes; 2) the full suite and replay tests pass; 3) each touched docs page (${(docs.pages || []).join(', ') || 'none'}) holds one Diataxis kind, starts with its kind-and-audience line, follows the title pattern and links related kinds. Report problems; do not edit.`,
+  `Verify: 1) revert the fix locally (do not commit) and confirm ${repro.test} fails, then restore and confirm it passes; 2) the full suite and replay tests pass; 3) each touched docs page (${(docs.pages || []).join(', ') || 'none'}) holds one Diataxis kind, starts with its kind-and-audience line, follows the title pattern and links related kinds. Report problems; do not commit, and restore the working tree before returning.`,
   { schema: CHECK, phase: 'Check', label: 'check' })
 if (!check) return { status: 'unverified', reason: 'check agent failed', cause: diag.cause }
 if (!check.pass) return { status: 'blocked', open: check.problems }
