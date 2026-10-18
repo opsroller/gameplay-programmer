@@ -16,7 +16,7 @@
 | `system` | yes | Name of the rule, system or tool. |
 | `spec` | yes | Path or section of the spec. |
 | `target` | no | `"system"` (default): a rule or system in the engine-independent core. `"tool"`: a tool or command-line program over the core. |
-| `wp` | no | Work package id. Goes into the PR body as `Refs:` and makes `next` point at deliver-package. |
+| `wp` | no | Work package id. Plan checks it against the project's work-package list; it must exist and be this system's or tool's package. Goes into the PR body as `Refs:` and makes `next` point at deliver-package. |
 | `branch` | no | Existing branch to work on; its open PR is reused. |
 | `pr` | no | Existing PR to work on, with its head branch. |
 
@@ -105,7 +105,9 @@ on the PR: it marks it ready, asks the code reviewer and squash-merges
 once the reviewer passes it and CI is green.
 
 A string starting `blocked:` means planning or building failed before any
-structured result.
+structured result. `blocked: work package ... is not in the project's
+work-package list` or `... is "<title>", not the system ...` means `wp`
+was wrong: run again with the right id, or without `wp`.
 
 ## Run modes
 
