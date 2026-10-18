@@ -1,6 +1,6 @@
 ---
 name: gameplay-debugging-and-profiling
-description: Use when a gameplay bug, desync, crash or slowdown must be found and fixed: reproducing from seed and input log, minimising, finding the first divergence, debug views and commands, and measuring the simulation's share of the frame before optimising.
+description: Use when a gameplay bug, desync, crash, lifecycle or leak bug, or slowdown must be found and fixed: reproducing from seed and input log, minimising, finding the first divergence, debug views and commands, and measuring the simulation's share of the frame before optimising.
 ---
 
 # Gameplay debugging and profiling
@@ -28,6 +28,32 @@ write-ups). Determinism and logging turn finding into a mechanical search.
    tests.
 7. **Look for siblings**: the same mistake elsewhere (another unordered
    iteration, another clock read).
+
+## Bugs outside the simulation
+
+Ticks and state hashes only exist in the simulation. For other bugs the
+method is the same (reproduce as a test, minimise, first divergence, one
+sentence, fix at the cause, siblings), but the failing test and the first
+divergence differ:
+
+- **Lifecycle** (start-up, load and unload, pause and resume, quit and
+  teardown, threads): test with a headless engine run that drives the steps
+  and fails on wrong order, state, error or exit code. Write down the
+  expected sequence of steps for each object (created, entered, ready,
+  running, exiting, freed) with its owner and thread, trace the actual one,
+  and find the first step that differs.
+- **Resource** (leaks, double release, use after release): test the
+  smallest create and release cycle and fail when counts do not return to
+  their start or the engine's leak report, a sanitizer (LeakSanitizer,
+  AddressSanitizer) or Valgrind reports one. Name the allocation, its owner,
+  and the release path that misses it.
+- **Integration** (data or calls across the boundary to the engine,
+  platform or content): test at the boundary; log what crosses it against
+  the contract and find the first call whose input or output is wrong.
+
+When the test needs it, change the test harness (runner, fixtures,
+test-only hooks release builds never run) or add a CI step, in its own
+commit apart from the fix.
 
 ## Tools to build into the game (development builds)
 
