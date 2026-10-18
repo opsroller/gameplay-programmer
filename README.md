@@ -26,6 +26,7 @@ walks through one rule from spec to pull request.
 
 **Getting a job done.** The how-to guides cover the role's everyday tasks:
 [implement a game system](docs/how-to/how-to-implement-a-game-system.md),
+[build a gameplay tool](docs/how-to/how-to-build-a-gameplay-tool.md),
 [fix a gameplay bug](docs/how-to/how-to-fix-a-gameplay-bug.md),
 [make a simulation deterministic](docs/how-to/how-to-make-a-simulation-deterministic.md),
 [expose a system to the engine](docs/how-to/how-to-expose-a-system-to-the-engine.md) and
