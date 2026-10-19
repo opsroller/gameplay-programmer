@@ -1,6 +1,6 @@
 ---
 name: engine-integration
-description: Use when exposing engine-independent game logic to a game engine, scripting layer or another language through a binding: the thin adapter, type conversion, commands in and events out, error containment, lifetime, and the headless smoke test.
+description: 'Use when exposing engine-independent game logic to a game engine, scripting layer or another language through a binding: the thin adapter, type conversion, commands in and events out, error containment, lifetime, and the headless smoke test.'
 ---
 
 # Engine integration
