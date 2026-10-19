@@ -1,6 +1,6 @@
 ---
 name: data-driven-content
-description: Use when designers need to add or tune kinds, numbers, levels or content without code changes: type objects, content schemas, load-time validation, inheritance/templates, hot reload and content tests.
+description: 'Use when designers need to add or tune kinds, numbers, levels or content without code changes: type objects, content schemas, load-time validation, inheritance/templates, hot reload and content tests.'
 ---
 
 # Data-driven content

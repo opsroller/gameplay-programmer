@@ -1,6 +1,6 @@
 ---
 name: gameplay-debugging-and-profiling
-description: Use when a gameplay bug, desync, crash, lifecycle or leak bug, or slowdown must be found and fixed: reproducing from seed and input log, minimising, finding the first divergence, debug views and commands, and measuring the simulation's share of the frame before optimising.
+description: 'Use when a gameplay bug, desync, crash, lifecycle or leak bug, or slowdown must be found and fixed: reproducing from seed and input log, minimising, finding the first divergence, debug views and commands, and measuring the simulation''s share of the frame before optimising.'
 ---
 
 # Gameplay debugging and profiling

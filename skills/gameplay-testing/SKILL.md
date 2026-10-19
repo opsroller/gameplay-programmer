@@ -1,6 +1,6 @@
 ---
 name: gameplay-testing
-description: Use when writing, fixing or planning tests for game logic: unit tests per rule, scenario tests from readable fixtures, property and stateful tests for invariants, replay and golden tests for determinism, and keeping the suite fast and reliable.
+description: 'Use when writing, fixing or planning tests for game logic: unit tests per rule, scenario tests from readable fixtures, property and stateful tests for invariants, replay and golden tests for determinism, and keeping the suite fast and reliable.'
 ---
 
 # Gameplay testing
